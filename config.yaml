@@ -1,0 +1,17 @@
+# ── Sample list ───────────────────────────────────────────────────────────────
+samples:
+  - sample_A
+  - sample_B
+  - sample_C
+
+# ── Read simulation ───────────────────────────────────────────────────────────
+n_reads:    1000      # reads per sample
+read_len:   100       # bp per read
+error_rate: 0.02      # sequencing error probability (2 %)
+
+# ── Quality filtering ─────────────────────────────────────────────────────────
+min_quality: 20       # minimum mean Phred score to keep a read
+min_length:  50       # minimum read length after trimming
+
+# ── K-mer counting ────────────────────────────────────────────────────────────
+kmer_k: 4             # k-mer length (4-mers = 256 possible words)

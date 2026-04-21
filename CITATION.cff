@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+
+title: "RNA-seq QC Pipeline (Snakemake + Docker)"
+version: "1.0.0"
+date-released: "2026-04-21"
+
+abstract: >
+  A lightweight RNA-seq quality control pipeline built with Snakemake and
+  containerised with Docker. The pipeline simulates synthetic FASTQ reads,
+  filters by Phred quality score and read length, counts k-mer frequencies,
+  and aggregates per-sample results into a summary report. Designed as a
+  reproducible, portable template for real-world RNA-seq preprocessing workflows.
+
+authors:
+  - family-names: "Your Last Name"
+    given-names: "Your First Name"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"   # uncomment and fill in
+    # affiliation: "Your Institution"                   # uncomment and fill in
+
+license: MIT
+
+repository-code: "https://github.com/yourusername/rna-seq-qc-pipeline"
+# doi: "10.5281/zenodo.XXXXXXX"   # uncomment and fill in after Zenodo deposit
+
+keywords:
+  - snakemake
+  - bioinformatics
+  - docker
+  - rna-seq
+  - quality-control
+  - k-mer
+  - reproducible-research
+  - pipeline
+
+references:
+  - type: software
+    title: "Snakemake"
+    authors:
+      - family-names: "Mölder"
+        given-names: "Felix"
+      - family-names: "Jablonski"
+        given-names: "Kim Philipp"
+    doi: "10.12688/f1000research.29032.2"
+    url: "https://snakemake.readthedocs.io"

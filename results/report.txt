@@ -1,0 +1,62 @@
+──────────────────────────────────────────────────────────────────────
+  RNA-seq QC Pipeline — Summary Report
+  Generated: 2026-04-21 08:24 UTC
+──────────────────────────────────────────────────────────────────────
+
+  QUALITY FILTERING RESULTS
+
+  Sample             Total     Kept   Disc.Q   Disc.L   Pass%
+  ----------------------------------------------------------
+  sample_A           1,000    1,000        0        0  100.0%
+  sample_B           1,000    1,000        0        0  100.0%
+  sample_C           1,000    1,000        0        0  100.0%
+  ----------------------------------------------------------
+  TOTAL              3,000    3,000        0        0  100.0%
+
+  TOP 10 K-MERS PER SAMPLE
+
+  [sample_A]  (256 unique k-mers, 97,000 total occurrences)
+  Rank   K-mer           Count    Freq%
+  --------------------------------------
+  1      ATAG              438    0.45%
+  2      GTGG              436    0.45%
+  3      CATA              435    0.45%
+  4      TATG              429    0.44%
+  5      CGTG              423    0.44%
+  6      GCAT              420    0.43%
+  7      AGAA              417    0.43%
+  8      GGCG              416    0.43%
+  9      GTAC              416    0.43%
+  10     ATAT              416    0.43%
+
+  [sample_B]  (256 unique k-mers, 97,000 total occurrences)
+  Rank   K-mer           Count    Freq%
+  --------------------------------------
+  1      TACG              430    0.44%
+  2      GCTA              429    0.44%
+  3      TGCT              426    0.44%
+  4      CTAC              422    0.44%
+  5      TTCA              422    0.44%
+  6      CTTT              421    0.43%
+  7      TGCG              416    0.43%
+  8      CATG              412    0.42%
+  9      ACGG              412    0.42%
+  10     CCCC              411    0.42%
+
+  [sample_C]  (256 unique k-mers, 97,000 total occurrences)
+  Rank   K-mer           Count    Freq%
+  --------------------------------------
+  1      TGTT              433    0.45%
+  2      CGTC              430    0.44%
+  3      CGTG              425    0.44%
+  4      AAGT              421    0.43%
+  5      TTTC              420    0.43%
+  6      GTCG              419    0.43%
+  7      GTAC              418    0.43%
+  8      TCGA              416    0.43%
+  9      ACGT              416    0.43%
+  10     TCCA              414    0.43%
+
+──────────────────────────────────────────────────────────────────────
+  Pipeline completed successfully.
+──────────────────────────────────────────────────────────────────────
