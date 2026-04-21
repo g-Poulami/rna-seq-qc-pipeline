@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
 # RNA-seq QC Pipeline
 
 A minimal but realistic bioinformatics pipeline built with **Snakemake** and
