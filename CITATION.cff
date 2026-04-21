@@ -14,15 +14,14 @@ abstract: >
   reproducible, portable template for real-world RNA-seq preprocessing workflows.
 
 authors:
-  - family-names: "Your Last Name"
-    given-names: "Your First Name"
-    # orcid: "https://orcid.org/0000-0000-0000-0000"   # uncomment and fill in
-    # affiliation: "Your Institution"                   # uncomment and fill in
+  - family-names: "Ghosh"
+    given-names: "Poulami"
+    orcid: "https://orcid.org/0000-0001-9833-5404"
 
 license: MIT
 
 repository-code: "https://github.com/yourusername/rna-seq-qc-pipeline"
-# doi: "10.5281/zenodo.XXXXXXX"   # uncomment and fill in after Zenodo deposit
+# doi: "10.5281/zenodo.19677919"   # uncomment and fill in after Zenodo deposit
 
 keywords:
   - snakemake
