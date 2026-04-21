@@ -21,7 +21,6 @@ authors:
 license: MIT
 
 repository-code: "https://github.com/yourusername/rna-seq-qc-pipeline"
-# doi: "10.5281/zenodo.19677919"   # uncomment and fill in after Zenodo deposit
 
 keywords:
   - snakemake
@@ -32,14 +31,3 @@ keywords:
   - k-mer
   - reproducible-research
   - pipeline
-
-references:
-  - type: software
-    title: "Snakemake"
-    authors:
-      - family-names: "Mölder"
-        given-names: "Felix"
-      - family-names: "Jablonski"
-        given-names: "Kim Philipp"
-    doi: "10.12688/f1000research.29032.2"
-    url: "https://snakemake.readthedocs.io"
