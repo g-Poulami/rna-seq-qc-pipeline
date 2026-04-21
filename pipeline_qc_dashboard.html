@@ -1,0 +1,339 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0d0f14;--bg2:#161923;--bg3:#1e2333;
+    --border:#2a3048;
+    --teal:#2dd4bf;--amber:#f59e0b;--rose:#f43f5e;--violet:#818cf8;
+    --txt:#e2e8f0;--txt2:#94a3b8;--txt3:#64748b;
+    --mono:'Space Mono',monospace;--sans:'DM Sans',sans-serif;
+  }
+  body{background:var(--bg);color:var(--txt);font-family:var(--sans);min-height:100vh}
+  .wrap{padding:20px}
+  .header{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
+  .header h1{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--teal);letter-spacing:3px;text-transform:uppercase}
+  .header span{font-size:11px;color:var(--txt3);font-family:var(--mono)}
+  .tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:14px}
+  .tab{font-size:11px;font-family:var(--mono);padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s;color:var(--txt3);border:1px solid transparent;background:none}
+  .tab:hover{color:var(--txt2);border-color:var(--border)}
+  .tab.active{background:var(--bg3);color:var(--teal);border-color:var(--teal);box-shadow:0 0 12px rgba(45,212,191,.12)}
+  .panel{display:none;animation:fadeIn .25s ease}
+  .panel.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px}
+  .card-title{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+  canvas{display:block}
+  .legend{display:flex;gap:18px;margin-top:10px;justify-content:center}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--txt3)}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .sub{font-size:10px;color:var(--txt3);font-family:var(--mono);margin-top:8px}
+  .sample-selector{display:flex;gap:6px;margin-bottom:14px}
+  .samp-btn{font-size:10px;font-family:var(--mono);padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--txt3);transition:all .15s}
+  .samp-btn.active{color:var(--bg);background:var(--teal);border-color:var(--teal)}
+</style>
+
+<div class="wrap">
+  <div class="header">
+    <h1>QC Dashboard</h1>
+    <span>RNA-seq Pipeline · 3 samples · 1,000 reads each</span>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('heatmap',this)">K-mer Heatmap</button>
+    <button class="tab" onclick="switchTab('topkmers',this)">Top K-mers</button>
+    <button class="tab" onclick="switchTab('gc',this)">GC Content</button>
+    <button class="tab" onclick="switchTab('qual',this)">Quality Scores</button>
+  </div>
+
+  <div id="panel-heatmap" class="panel active">
+    <div class="card">
+      <div class="card-title">4-mer frequency heatmap · all 256 k-mers</div>
+      <div class="sample-selector">
+        <button class="samp-btn active" onclick="setHeatSample('sample_A',this)">sample_A</button>
+        <button class="samp-btn" onclick="setHeatSample('sample_B',this)">sample_B</button>
+        <button class="samp-btn" onclick="setHeatSample('sample_C',this)">sample_C</button>
+      </div>
+      <!-- taller canvas: extra room at bottom for labels + colourbar -->
+      <canvas id="heatCanvas" width="620" height="380"></canvas>
+      <div class="sub" style="margin-top:6px">Axes: first 2 bases (rows) × last 2 bases (cols). Color = count. Warm = high frequency.</div>
+    </div>
+  </div>
+
+  <div id="panel-topkmers" class="panel">
+    <div class="card">
+      <div class="card-title">Top 15 4-mers by sample</div>
+      <canvas id="barCanvas" width="620" height="320"></canvas>
+      <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:var(--teal)"></div>sample_A</div>
+        <div class="legend-item"><div class="dot" style="background:var(--amber)"></div>sample_B</div>
+        <div class="legend-item"><div class="dot" style="background:var(--rose)"></div>sample_C</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-gc" class="panel">
+    <div class="card">
+      <div class="card-title">GC content distribution per sample</div>
+      <canvas id="gcCanvas" width="620" height="300"></canvas>
+      <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:var(--teal)"></div>sample_A</div>
+        <div class="legend-item"><div class="dot" style="background:var(--amber)"></div>sample_B</div>
+        <div class="legend-item"><div class="dot" style="background:var(--rose)"></div>sample_C</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="panel-qual" class="panel">
+    <div class="card">
+      <div class="card-title">Per-read mean Phred quality score distribution</div>
+      <canvas id="qualCanvas" width="620" height="300"></canvas>
+      <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:var(--teal)"></div>sample_A</div>
+        <div class="legend-item"><div class="dot" style="background:var(--amber)"></div>sample_B</div>
+        <div class="legend-item"><div class="dot" style="background:var(--rose)"></div>sample_C</div>
+      </div>
+      <div class="sub">Q20 threshold (green dashed) = 99% base accuracy. All reads pass.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS={teal:'#2dd4bf',amber:'#f59e0b',rose:'#f43f5e',txt3:'#64748b',bg3:'#1e2333',border:'#2a3048'};
+const BASES=['AA','AC','AG','AT','CA','CC','CG','CT','GA','GC','GG','GT','TA','TC','TG','TT'];
+const SCOLORS=[COLORS.teal,COLORS.amber,COLORS.rose];
+
+const DATA={
+sample_A:{kmers:{ATAG:438,GTGG:436,CATA:435,TATG:429,CGTG:423,GCAT:420,AGAA:417,GGCG:416,GTAC:416,ATAT:416,TCTC:412,CAAT:411,CAAG:410,TAGT:410,ATGG:410,TAGA:410,AGGC:408,TGTA:406,AAGG:405,ATCC:405},all_kmers:{ATAG:438,GTGG:436,CATA:435,TATG:429,CGTG:423,GCAT:420,AGAA:417,GGCG:416,GTAC:416,ATAT:416,TCTC:412,CAAT:411,CAAG:410,TAGT:410,ATGG:410,TAGA:410,AGGC:408,TGTA:406,AAGG:405,ATCC:405,TACC:404,ACCA:404,TATC:404,CCAA:404,TCGT:402,TAAA:402,AGCC:402,AAGA:402,GGTA:402,CGCA:401,AATG:401,CTTC:401,GCGA:401,AGAT:401,AGTA:400,GATA:400,GAAG:400,CTAT:400,CCGT:399,GTTA:399,GACC:399,GTGA:399,ACAT:398,TAAG:398,AAAC:397,TAGC:396,CATG:396,GAAC:396,GTAG:395,ATGA:395,GTAA:395,ATGT:395,GCGT:394,CGAA:394,TTGC:393,GCAG:393,TCCA:393,CCTT:392,CTAG:392,GATC:392,AGAC:392,ACGA:391,TGGG:391,AAGT:391,ACTT:391,ATTC:390,TTGT:390,CGAC:390,GTCT:390,TCCG:389,TACT:389,GGGT:389,CCTA:389,CTGT:389,CCGC:388,GAAT:388,CCAG:388,ACTG:388,TGCC:388,ACTA:387,GGCA:387,TCAA:387,TTAA:387,AGGT:387,TATA:387,CCAT:387,AGCG:386,GAGA:386,GCCA:386,AACC:386,TGGC:385,GCGC:385,TGAA:385,CCAC:385,CAGA:385,GCCG:385,TGTG:384,CATT:384,CCGA:384,AAGC:384,GCTG:383,TTAG:383,GGTT:383,TGGA:383,AACA:383,GGTC:383,TGGT:383,TTCC:382,ACCT:382,CGGT:382,AACT:382,CTCA:382,TAGG:381,TGCG:381,GTTT:381,ACCG:381,GCCC:381,CACT:381,TGTT:381,AGTG:381,GAGT:381,TTCT:380,AATT:380,TCTA:380,TGAG:379,CTAC:379,GATT:379,ATCT:379,CAGG:379,GGGC:378,CGAG:378,ACAA:378,TGCA:378,GCTA:378,CGTC:378,TACG:378,CGTA:377,TTAT:377,GAAA:377,GCGG:377,GGAT:377,GACT:376,TTTA:376,TTAC:376,TACA:376,AGTC:376,ATAC:376,TCCT:376,GTAT:376,CTCC:375,CTTA:375,ATGC:375,GCAA:374,TTTG:374,AGTT:374,CACA:374,TGCT:373,ATTA:373,ACAC:373,GTTG:373,CAAC:373,GTCG:373,TCGC:373,AGCA:373,CCCA:373,CGCT:372,GTGC:372,CTTG:372,TCAT:372,TGAT:372,CGAT:372,AGAG:372,CTGC:371,CTCG:371,CGTT:371,ACTC:371,TCCC:371,AACG:371,CACG:370,GGTG:370,CGCG:370,GTCC:370,TCTT:369,ATCA:369,TTCA:368,CCCG:368,CGGG:368,GACA:368,CAGC:368,ACGC:368,CGCC:368,CTAA:367,AAAG:367,ATTG:367,ATCG:367,TTTT:366,TTGA:366,TTCG:365,ATTT:364,GTCA:364,TGAC:363,GGAA:363,AATA:363,GGCT:363,GGCC:363,ACCC:363,TCAC:361,ACGT:361,AGGG:361,AATC:360,GAGC:359,AAAA:359,CATC:359,CTGG:359,GGGG:358,CCCT:357,TCGA:357,GCCT:357,AGGA:357,GTTC:356,AAAT:356,TGTC:356,GTGT:355,TCAG:355,CAGT:355,TATT:354,GAGG:354,CTTT:353,GCAC:353,ATAA:353,TAAT:352,CCTG:352,GCTT:351,CTCT:351,CACC:351,CCGG:351,TCGG:351,ACAG:351,GCTC:350,GGGA:350,TTTC:349,TAAC:349,AGCT:348,CAAA:348,GATG:347,CTGA:345,CGGC:345,GGAC:345,CCTC:344,ACGG:343,GACG:343,TTGG:342,TCTG:340,CCCC:340,GGAG:339,CGGA:327},gc_bins:{28:1,32:1,34:3,36:4,38:16,40:26,42:48,44:88,46:131,48:140,50:168,52:151,54:101,56:90,58:6,60:12,62:12,64:2},q_bins:{32.25:1,32.5:2,32.75:1,33.0:14,33.25:27,33.5:69,33.75:139,34.0:206,34.25:218,34.5:183,34.75:83,35.0:39,35.25:14,35.5:2,35.75:2}},
+sample_B:{kmers:{TACG:430,GCTA:429,TGCT:426,CTAC:422,TTCA:422,CTTT:421,TGCG:416,CATG:412,ACGG:412,CCCC:411,CAAC:410,ATAA:410,TATG:410,ATGC:408,TAGG:408,CTGC:407,CGTA:406,TTTA:406,AGTA:404,CTCA:404},all_kmers:{TACG:430,GCTA:429,TGCT:426,CTAC:422,TTCA:422,CTTT:421,TGCG:416,CATG:412,ACGG:412,CCCC:411,CAAC:410,ATAA:410,TATG:410,ATGC:408,TAGG:408,CTGC:407,CGTA:406,TTTA:406,AGTA:404,CTCA:404,TCAC:403,AGGT:402,TCAT:402,ATTC:402,AACT:402,CTTC:402,ACCC:402,CGAA:400,AAGA:400,AATT:400,TAAT:399,TAAC:399,CCTC:398,TTCT:398,CTAA:398,ACGA:397,AAAG:397,CCGC:397,ACTT:396,AGCT:396,CGCA:396,TTAC:395,TCCT:395,TGAA:395,CCCT:395,AAAA:394,CTAG:394,ACTC:394,AGAT:394,TCTA:393,GAAT:393,ACGC:393,CACC:393,GTAA:392,TGGC:392,GATA:392,GCTG:392,CTCC:392,ACAT:392,AACA:391,AATA:391,GCAA:391,TAAG:390,ACAC:390,ACAG:390,GAAG:390,AAGT:389,GGTC:389,GGAA:389,GAAC:389,ATGT:389,TCTT:389,CATT:389,CCCG:389,ATGA:389,GTAG:388,ATCG:388,TACT:388,GCTC:388,AGAG:388,AGGC:388,GGCC:387,GCAT:387,GCGG:387,GTAC:387,CGAG:387,AGAC:387,GGCG:387,TACC:386,AACC:386,CCAG:386,GTAT:386,TATA:386,GAAA:386,TGAC:386,GCGA:386,CGGT:385,GCCA:385,TGTA:385,CTCG:385,CTCT:385,CAGG:384,CCTA:384,CGGA:384,GACA:384,ACCG:383,TCGT:383,ATAG:383,CTGG:383,CGCC:383,GCAC:383,CACA:382,GTCT:382,GTTG:382,ATTT:382,AAGG:382,TAGA:382,GACC:382,CCTT:382,CAGA:382,ACCA:381,TAGC:381,AATG:381,GATC:381,CGGG:381,AACG:381,GCCC:380,TTAT:380,AGGA:380,GGCT:380,CCAA:379,GCGT:379,ATAC:379,GGGA:379,AGTT:379,TTGC:379,TCGG:378,TCTC:378,ACCT:378,TTTC:378,TAAA:378,ATGG:377,GTGC:377,TGCA:377,TACA:377,CGCT:377,GGTT:376,CCGA:376,TTTT:376,CCTG:375,GTGA:375,ATTA:374,GGAT:374,TTTG:374,ATAT:374,TTGA:374,TCCC:374,TCGC:374,CGCG:374,CGGC:374,CGTG:373,TGTG:373,CATA:373,GACG:373,CACG:373,ACTA:373,CATC:373,AAGC:373,CGAT:372,CAAG:372,CAGT:371,GAGA:371,GACT:371,GAGC:371,CGAC:371,GGTG:371,GAGT:370,GCCT:370,TTGT:369,CACT:369,AGAA:369,TTCG:369,GGAC:369,GGTA:368,CCCA:368,GAGG:368,GTCA:366,ACAA:366,CCAT:366,TTAG:366,ACTG:366,GCTT:366,GGGG:366,GATT:365,TCTG:365,TAGT:365,TCGA:365,TGTC:365,TCAG:365,GCGC:365,ATCT:364,TGGT:364,AAAC:363,ATCC:363,GTGT:363,GGGC:362,TGCC:362,AGCA:362,CTTA:362,CCGT:361,AGGG:361,GTTC:361,TCAA:361,GCCG:360,TATT:360,GGCA:360,GTTT:360,AGCC:360,TGTT:359,CTGT:358,CTTG:358,GATG:358,AGTC:357,CTAT:357,AAAT:357,GTTA:357,TCCG:357,AGTG:356,GGGT:356,GGAG:356,CAAT:356,TTAA:355,GTCG:355,TTGG:353,GTGG:353,CTGA:353,TATC:352,TTCC:352,TGAT:352,ATTG:352,CAAA:351,TGGG:351,CCGG:351,CGTT:349,ACGT:349,TGAG:349,TGGA:347,CCAC:346,GTCC:345,CAGC:345,AGCG:342,AATC:341,TCCA:341,CGTC:340,GCAG:337,ATCA:333},gc_bins:{34:3,36:3,38:8,40:24,42:71,44:92,46:125,48:154,50:135,52:139,54:110,56:93,58:20,60:16,62:5,64:2},q_bins:{32.5:1,32.75:2,33.0:6,33.25:35,33.5:67,33.75:136,34.0:214,34.25:228,34.5:182,34.75:82,35.0:35,35.25:12}},
+sample_C:{kmers:{TGTT:433,CGTC:430,CGTG:425,AAGT:421,TTTC:420,GTCG:419,GTAC:418,TCGA:416,ACGT:416,TCCA:414,CCTT:412,ACCT:412,GCCT:410,TTCG:409,ATGT:409,CTTA:408,CTCT:408,TTCC:407,GAGC:406,TACG:406},all_kmers:{TGTT:433,CGTC:430,CGTG:425,AAGT:421,TTTC:420,GTCG:419,GTAC:418,TCGA:416,ACGT:416,TCCA:414,CCTT:412,ACCT:412,GCCT:410,TTCG:409,ATGT:409,CTTA:408,CTCT:408,TTCC:407,GAGC:406,TACG:406,CCTA:406,GGAC:405,TCGT:405,GTGA:405,GTCC:405,AACG:405,GTGC:404,TCGG:404,TAAG:403,TCTG:403,CTGA:403,GTGT:403,TGAA:403,GATC:402,ACGC:402,CTAT:402,CGAC:402,CGAG:401,CTAC:401,TTGT:400,GCTA:400,GACC:399,AGTG:399,CCGA:399,GACG:399,GGTA:397,CCAC:397,CGGT:396,CCCT:395,GTTT:395,GACA:395,CACC:395,CGCC:394,AGAT:394,TAGA:393,CCCG:393,ATCG:392,TGAC:392,GGCT:392,GGTC:392,CTGG:391,GTTA:391,TGCA:391,GACT:391,TTAG:391,AAAC:391,CCTG:390,CTCG:390,CCAT:390,AGAC:390,ACCG:389,CTTC:389,GAGA:389,AACT:389,ACGG:389,TTAA:388,TCTT:388,TGAG:388,ACTC:388,CGGA:388,GTTG:388,GCGT:388,TACT:388,TTAT:387,TTCT:387,GTCT:387,ATTT:387,ATGA:387,GCCC:387,GAAT:387,CATG:387,TTAC:387,TGCG:386,CGCT:386,CTTG:386,ACAT:386,TGGT:386,TTTA:386,TGTG:386,ACCC:385,TGGA:385,TCTC:385,AGTA:385,TACC:385,AGCC:384,TGTC:384,AGCT:384,CTAA:384,AGAG:383,CCTC:383,GGAA:382,GAAA:382,TCGC:382,AGTT:381,TATT:381,TATG:381,CATT:381,CGAA:381,CAAC:380,ACGA:380,TCCC:380,ACAC:380,GAAG:380,AAAG:380,ACTA:380,CACG:379,GCTT:379,TCCG:379,CGTT:379,AGTC:379,TGAT:378,GCAT:378,GTTC:378,ACCA:378,AGGT:378,ATTC:378,AACC:377,AATG:377,CCAG:377,TTTT:377,GCGC:376,CGAT:376,GTAA:376,GTCA:376,GAGT:376,CTTT:376,GTGG:376,AAGA:376,TATC:376,TACA:376,CTCC:376,TCCT:376,TCAG:376,CCGT:375,GTAG:375,AGCA:375,TAGT:375,ACTG:375,GGTG:375,TTGC:375,TGTA:374,ACTT:374,CATA:373,GCTC:373,CAGT:372,GCAC:372,ATCT:372,CTGC:372,CCGG:372,GCAA:372,AGGA:372,CTGT:371,TCTA:371,GCCA:370,ATGG:370,CCCC:369,GAGG:369,GCTG:368,GATG:368,TGGC:368,TAAA:368,AATT:368,ATAG:367,CGCA:367,ATCA:367,CTAG:367,TAAC:367,GATA:367,GGCG:365,TCAA:365,GAAC:363,GGGT:363,ATCC:363,CACT:363,ATTA:363,AAGG:362,TAGC:362,TAAT:362,GCGA:362,TTGA:362,TGCT:362,CAAT:362,AAGC:362,ATTG:361,CATC:361,GATT:361,TGCC:361,TAGG:361,CGGG:360,CGTA:360,TGGG:360,CAGC:360,CGGC:360,CCCA:359,ATAC:359,GGTT:359,TTCA:359,TCAC:359,CCAA:358,GGAG:358,CAGA:358,AGGG:357,GGGA:357,CAGG:357,TTGG:357,ATAT:357,CACA:356,GGCC:355,ACAA:355,CAAA:355,AATC:353,AGCG:353,AGGC:353,CAAG:353,AAAA:353,TTTG:353,TCAT:352,ACAG:351,CGCG:351,TATA:351,CTCA:351,GGAT:350,GGGC:349,ATGC:349,GGGG:349,AGAA:349,GCAG:344,GTAT:344,CCGC:341,ATAA:341,AATA:340,AACA:337,GCGG:335,AAAT:331,GCCG:327,GGCA:326},gc_bins:{34:3,36:5,38:6,40:31,42:49,44:74,46:146,48:146,50:158,52:138,54:109,56:94,58:17,60:18,62:6},q_bins:{32.5:1,33.0:6,33.25:31,33.5:82,33.75:134,34.0:193,34.25:231,34.5:163,34.75:118,35.0:32,35.25:7,35.5:2}}
+};
+
+const PR=window.devicePixelRatio||1;
+function setupCanvas(id){
+  const c=document.getElementById(id);
+  const w=c.width,h=c.height;
+  c.width=w*PR;c.height=h*PR;
+  c.style.width=w+'px';c.style.height=h+'px';
+  const ctx=c.getContext('2d');
+  ctx.scale(PR,PR);
+  return {ctx,w,h};
+}
+
+let curHeatSample='sample_A';
+function heatColor(v,mn,mx){
+  const t=(v-mn)/(mx-mn);
+  if(t<0.5){const s=t*2;return `rgb(${Math.round(30+s*200)},${Math.round(80+s*80)},${Math.round(180-s*60)})`;}
+  else{const s=(t-0.5)*2;return `rgb(${Math.round(230+s*14)},${Math.round(160-s*110)},${Math.round(120-s*86)})`;}
+}
+
+function drawHeat(sample){
+  const {ctx,w,h}=setupCanvas('heatCanvas');
+  ctx.clearRect(0,0,w,h);
+  const km=DATA[sample].all_kmers;
+  const vals=BASES.flatMap(r=>BASES.map(c=>km[r+c]||0));
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+
+  // Layout: grid occupies most of height; bottom margin holds axis labels then colourbar
+  // margin.b is split: axLabels (20px) + gap (8px) + barHeight (6px) + barLabel (12px) = 46px total
+  const margin={t:20,l:42,r:20,b:58};
+  const cw=(w-margin.l-margin.r)/16;
+  const ch=(h-margin.t-margin.b)/16;
+
+  // axis labels (column = x, row = y)
+  ctx.font=`${7*PR}px Space Mono`;
+  ctx.fillStyle=COLORS.txt3;
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+
+  // column labels just below the grid
+  const colLabelY = margin.t + 16*ch + 12;
+  for(let ci=0;ci<16;ci++){
+    ctx.fillText(BASES[ci], margin.l+ci*cw+cw/2, colLabelY);
+  }
+  // row labels to the left of the grid
+  for(let ri=0;ri<16;ri++){
+    ctx.fillText(BASES[ri], margin.l/2-2, margin.t+ri*ch+ch/2);
+  }
+
+  // grid cells
+  for(let ri=0;ri<16;ri++){
+    for(let ci=0;ci<16;ci++){
+      const kmer=BASES[ri]+BASES[ci];
+      const v=km[kmer]||0;
+      ctx.fillStyle=heatColor(v,mn,mx);
+      ctx.fillRect(margin.l+ci*cw+.5, margin.t+ri*ch+.5, cw-1, ch-1);
+    }
+  }
+
+  // colourbar: sits below axis labels with a clear gap
+  const lx=margin.l;
+  const lw=w-margin.l-margin.r;
+  const barH=6;
+  const barY = colLabelY + 16;   // 16px below axis labels — well clear
+  const grad=ctx.createLinearGradient(lx,0,lx+lw,0);
+  grad.addColorStop(0,heatColor(mn,mn,mx));
+  grad.addColorStop(0.5,heatColor((mn+mx)/2,mn,mx));
+  grad.addColorStop(1,heatColor(mx,mn,mx));
+  ctx.fillStyle=grad;
+  ctx.fillRect(lx, barY, lw, barH);
+
+  // thin border around bar
+  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=0.5;
+  ctx.strokeRect(lx, barY, lw, barH);
+
+  // bar labels
+  ctx.font=`${7*PR}px Space Mono`;
+  ctx.textBaseline='top';
+  ctx.fillStyle=COLORS.txt3;
+  ctx.textAlign='left';  ctx.fillText(mn,        lx,         barY+barH+4);
+  ctx.textAlign='center';ctx.fillText('count',   lx+lw/2,    barY+barH+4);
+  ctx.textAlign='right'; ctx.fillText(mx,        lx+lw,      barY+barH+4);
+}
+
+function setHeatSample(s,el){
+  curHeatSample=s;
+  document.querySelectorAll('.samp-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  drawHeat(s);
+}
+
+function drawBars(){
+  const {ctx,w,h}=setupCanvas('barCanvas');
+  ctx.clearRect(0,0,w,h);
+  const allTop=new Set();
+  ['sample_A','sample_B','sample_C'].forEach(s=>Object.keys(DATA[s].kmers).slice(0,15).forEach(k=>allTop.add(k)));
+  const kmers=[...allTop].slice(0,15);
+  const samples=['sample_A','sample_B','sample_C'];
+  const margin={t:10,l:50,r:20,b:60};
+  const bw=(w-margin.l-margin.r)/kmers.length;
+  const groupW=bw*0.85;const barW=groupW/3;
+  const ch=h-margin.t-margin.b;
+  for(let v=300;v<=450;v+=50){
+    const y=margin.t+ch-(v-300)/150*ch;
+    ctx.strokeStyle='rgba(42,48,72,0.6)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+    ctx.beginPath();ctx.moveTo(margin.l,y);ctx.lineTo(w-margin.r,y);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=COLORS.txt3;ctx.font=`${8*PR}px Space Mono`;ctx.textAlign='right';ctx.fillText(v,margin.l-6,y+3);
+  }
+  kmers.forEach((kmer,i)=>{
+    const gx=margin.l+i*bw+(bw-groupW)/2;
+    samples.forEach((s,si)=>{
+      const v=DATA[s].all_kmers[kmer]||0;
+      const bh=(v-300)/150*ch;const x=gx+si*barW;const y=margin.t+ch-bh;
+      const col=SCOLORS[si];
+      ctx.fillStyle=col+'33';ctx.fillRect(x+.5,y,barW-1,bh);
+      ctx.fillStyle=col;ctx.fillRect(x+.5,y,barW-1,3);
+    });
+    ctx.save();ctx.translate(margin.l+i*bw+bw/2,h-margin.b+8);
+    ctx.rotate(-Math.PI/4);
+    ctx.fillStyle=COLORS.txt3;ctx.font=`${7.5*PR}px Space Mono`;
+    ctx.textAlign='right';ctx.fillText(kmer,0,0);ctx.restore();
+  });
+}
+
+function drawGC(){
+  const {ctx,w,h}=setupCanvas('gcCanvas');
+  ctx.clearRect(0,0,w,h);
+  const margin={t:10,l:50,r:20,b:44};const ch=h-margin.t-margin.b;
+  const samples=['sample_A','sample_B','sample_C'];
+  const allBins=new Set();
+  samples.forEach(s=>Object.keys(DATA[s].gc_bins).forEach(b=>allBins.add(+b)));
+  const bins=[...allBins].sort((a,b)=>a-b);
+  const maxV=Math.max(...samples.flatMap(s=>Object.values(DATA[s].gc_bins)))*1.05;
+  const bw=(w-margin.l-margin.r)/bins.length;
+  [0,50,100,150,168].forEach(v=>{
+    const y=margin.t+ch-v/maxV*ch;
+    ctx.strokeStyle='rgba(42,48,72,0.5)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+    ctx.beginPath();ctx.moveTo(margin.l,y);ctx.lineTo(w-margin.r,y);ctx.stroke();
+    ctx.setLineDash([]);
+    if(v>0){ctx.fillStyle=COLORS.txt3;ctx.font=`${8*PR}px Space Mono`;ctx.textAlign='right';ctx.fillText(v,margin.l-5,y+3);}
+  });
+  samples.forEach((s,si)=>{
+    const col=SCOLORS[si];
+    ctx.beginPath();let first=true;
+    bins.forEach((b,i)=>{
+      const v=DATA[s].gc_bins[b]||0;
+      const x=margin.l+i*bw+bw/2;const y=margin.t+ch-v/maxV*ch;
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+    const last=bins.length-1;
+    ctx.lineTo(margin.l+last*bw+bw/2,margin.t+ch);ctx.lineTo(margin.l+bw/2,margin.t+ch);
+    ctx.closePath();ctx.fillStyle=col+'28';ctx.fill();
+    bins.forEach((b,i)=>{
+      const v=DATA[s].gc_bins[b]||0;if(!v)return;
+      const x=margin.l+i*bw+bw/2;const y=margin.t+ch-v/maxV*ch;
+      ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    });
+  });
+  ctx.fillStyle=COLORS.txt3;ctx.font=`${7.5*PR}px Space Mono`;ctx.textAlign='center';
+  bins.filter((_,i)=>i%2===0).forEach((b)=>{
+    const idx=bins.indexOf(b);const x=margin.l+idx*bw+bw/2;
+    ctx.fillText(b+'%',x,h-margin.b+14);
+  });
+  ctx.fillText('GC%',w/2,h-4);
+}
+
+function drawQual(){
+  const {ctx,w,h}=setupCanvas('qualCanvas');
+  ctx.clearRect(0,0,w,h);
+  const margin={t:10,l:50,r:20,b:44};const ch=h-margin.t-margin.b;
+  const samples=['sample_A','sample_B','sample_C'];
+  const allBins=new Set();
+  samples.forEach(s=>Object.keys(DATA[s].q_bins).forEach(b=>allBins.add(+b)));
+  const bins=[...allBins].sort((a,b)=>a-b);
+  const maxV=Math.max(...samples.flatMap(s=>Object.values(DATA[s].q_bins)))*1.05;
+  const bw=(w-margin.l-margin.r)/bins.length;
+  [0,50,100,150,200,231].forEach(v=>{
+    const y=margin.t+ch-v/maxV*ch;
+    ctx.strokeStyle='rgba(42,48,72,0.5)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+    ctx.beginPath();ctx.moveTo(margin.l,y);ctx.lineTo(w-margin.r,y);ctx.stroke();
+    ctx.setLineDash([]);
+    if(v>0){ctx.fillStyle=COLORS.txt3;ctx.font=`${8*PR}px Space Mono`;ctx.textAlign='right';ctx.fillText(v,margin.l-5,y+3);}
+  });
+  ctx.strokeStyle='#22c55e55';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(margin.l,margin.t+ch*0.02);ctx.lineTo(w-margin.r,margin.t+ch*0.02);ctx.stroke();
+  ctx.setLineDash([]);
+  samples.forEach((s,si)=>{
+    const col=SCOLORS[si];
+    ctx.beginPath();let first=true;
+    bins.forEach((b,i)=>{
+      const v=DATA[s].q_bins[b]||0;
+      const x=margin.l+i*bw+bw/2;const y=margin.t+ch-v/maxV*ch;
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+    const last=bins.length-1;
+    ctx.lineTo(margin.l+last*bw+bw/2,margin.t+ch);ctx.lineTo(margin.l+bw/2,margin.t+ch);
+    ctx.closePath();ctx.fillStyle=col+'28';ctx.fill();
+    bins.forEach((b,i)=>{
+      const v=DATA[s].q_bins[b]||0;if(!v)return;
+      const x=margin.l+i*bw+bw/2;const y=margin.t+ch-v/maxV*ch;
+      ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    });
+  });
+  ctx.fillStyle=COLORS.txt3;ctx.font=`${7.5*PR}px Space Mono`;ctx.textAlign='center';
+  bins.filter((_,i)=>i%2===0).forEach((b)=>{
+    const idx=bins.indexOf(b);const x=margin.l+idx*bw+bw/2;
+    ctx.fillText(b,x,h-margin.b+14);
+  });
+  ctx.fillText('Phred score',w/2,h-4);
+  ctx.fillStyle='#22c55e99';ctx.font=`${7*PR}px Space Mono`;
+  ctx.textAlign='left';ctx.textBaseline='top';ctx.fillText('Q20 threshold',margin.l+4,margin.t+4);
+}
+
+function switchTab(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  el.classList.add('active');
+  setTimeout(()=>{
+    if(id==='heatmap')drawHeat(curHeatSample);
+    if(id==='topkmers')drawBars();
+    if(id==='gc')drawGC();
+    if(id==='qual')drawQual();
+  },10);
+}
+
+drawHeat('sample_A');
+</script>
