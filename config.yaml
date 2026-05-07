@@ -1,17 +1,81 @@
-# ── Sample list ───────────────────────────────────────────────────────────────
-samples:
-  - sample_A
-  - sample_B
-  - sample_C
+name: CI
 
-# ── Read simulation ───────────────────────────────────────────────────────────
-n_reads:    1000      # reads per sample
-read_len:   100       # bp per read
-error_rate: 0.02      # sequencing error probability (2 %)
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-# ── Quality filtering ─────────────────────────────────────────────────────────
-min_quality: 20       # minimum mean Phred score to keep a read
-min_length:  50       # minimum read length after trimming
+jobs:
 
-# ── K-mer counting ────────────────────────────────────────────────────────────
-kmer_k: 4             # k-mer length (4-mers = 256 possible words)
+  # ── Job 1: Snakemake dry-run & full pipeline run ────────────────────────────
+  snakemake:
+    name: Snakemake pipeline
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Snakemake and dependencies
+        run: |
+          pip install --upgrade pip
+          pip install snakemake
+
+      - name: Validate Snakefile (dry-run)
+        run: |
+          snakemake --dry-run --cores 2 --printshellcmds
+
+      - name: Run full pipeline
+        run: |
+          snakemake --cores 2 --printshellcmds
+
+      - name: Verify report output exists
+        run: |
+          test -f results/report.txt && echo "Report generated successfully" || (echo "Report not found" && exit 1)
+
+      - name: Upload pipeline results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pipeline-results
+          path: results/
+          retention-days: 7
+
+  # ── Job 2: Docker image build ───────────────────────────────────────────────
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: rna-seq-qc-pipeline:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test Docker image
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/results:/pipeline/results" \
+            rna-seq-qc-pipeline:ci \
+            snakemake --cores 2 --printshellcmds
+
+      - name: Verify Docker report output
+        run: |
+          test -f results/report.txt && echo "Docker run succeeded" || (echo "Docker run failed" && exit 1)
