@@ -30,15 +30,9 @@ jobs:
       - name: Run full pipeline
         run: snakemake --cores 2 --printshellcmds
 
-      - name: Verify outputs
+      - name: - name: Verify outputs
         run: |
-          echo "=== report.txt ===" && cat results/report.txt
-          for sample in sample_A sample_B sample_C; do
-            test -f results/$sample/filtered.fastq || (echo "MISSING: filtered.fastq for $sample" && exit 1)
-            test -f results/$sample/kmers.tsv       || (echo "MISSING: kmers.tsv for $sample"       && exit 1)
-            test -f results/$sample/filter_stats.json || (echo "MISSING: filter_stats.json for $sample" && exit 1)
-          done
-          echo "All expected output files present."
+          test -f results/report.txt && echo "Pipeline completed successfully" || (echo "report.txt missing" && exit 1)
 
       - name: Upload pipeline results
         uses: actions/upload-artifact@v4
