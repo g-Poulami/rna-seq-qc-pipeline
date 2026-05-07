@@ -1,4 +1,4 @@
-[![CI](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml)
+[![CI](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml/badge.svg)](...)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19677919.svg)](https://doi.org/10.5281/zenodo.19677919)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
