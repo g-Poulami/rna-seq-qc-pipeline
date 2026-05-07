@@ -1,179 +1,189 @@
-# RNA-seq-QC-Pipeline
+# Nextflow-RNA-seq-Pipeline
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat-square&logo=python)](https://python.org)
-[![Docker](https://img.shields.io/badge/Docker-Containerised-blue?style=flat-square&logo=docker)](https://docker.com)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)]()
+[![Nextflow](https://img.shields.io/badge/Nextflow-%E2%89%A523.04-brightgreen?style=flat-square)](https://nextflow.io)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+[![CI](https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline/actions/workflows/ci.yml)
 
-A **containerised, reproducible** RNA-seq quality control pipeline implementing a four-step DAG for assessing sequencing quality, detecting artefacts, and generating a consolidated report before downstream alignment and quantification.
+A high-throughput, reproducible **RNA-seq processing pipeline** built in **Nextflow DSL2**, covering adapter trimming, splice-aware alignment, transcript quantification, and QC reporting for bulk transcriptomic analysis.
 
 ---
 
 ## Overview
 
-Quality control is the essential first step in any RNA-seq project. Poor-quality samples, adapter contamination, or rRNA carryover that escape detection at this stage propagate errors into all downstream analyses. This pipeline provides a standardised, automated QC workflow that is fully containerised — guaranteeing identical results regardless of host environment — and produces both per-sample and aggregated reports for easy interpretation.
+RNA sequencing quantifies gene expression across conditions, time points, or treatment groups. This pipeline takes paired-end raw reads through all pre-processing steps required before differential expression analysis — producing per-gene count matrices, alignment statistics, and a unified QC report. The DSL2 architecture makes it straightforward to swap aligners or quantifiers without rewriting the full workflow.
 
 ---
 
-## Four-Step DAG
+## Pipeline Steps
 
 ```
-Step 1: FastQC
-  Raw paired FASTQs --> per-read quality metrics, adapter content,
-                        duplication rates, GC distribution
-
+Paired FASTQ reads
         |
         v
-
-Step 2: Trimmomatic
-  FastQC reports --> adapter removal, leading/trailing quality trimming,
-                     sliding window filtering, minimum length filtering
-
+  FastQC (raw)              -- read quality, adapter content, duplication
         |
         v
-
-Step 3: FastQC (post-trim)
-  Trimmed FASTQs --> confirm adapter removal, verify quality improvement
-
+  Trimmomatic               -- adapter removal, quality trimming
         |
         v
-
-Step 4: MultiQC
-  All FastQC reports --> consolidated HTML report across all samples
+  FastQC (trimmed)          -- confirm trimming efficacy
+        |
+        v
+  STAR index (once)
+        |
+  STAR alignment            -- splice-aware alignment to reference genome
+        |
+        v
+  SAMtools sort & index      -- coordinate-sorted BAM
+  SAMtools flagstat          -- alignment rate, pair statistics
+        |
+        v
+  featureCounts              -- gene-level read counting
+        |
+        v
+  MultiQC                   -- aggregated HTML report
 ```
 
 ---
 
 ## Key Features
 
-- **Fully containerised**: Docker image bundles FastQC, Trimmomatic, and MultiQC — no local installation required
-- **Four-step DAG**: each step depends strictly on the previous, enforcing correct execution order
-- **Multi-sample ready**: processes all `*_R{1,2}.fastq.gz` files in the input directory in parallel
-- **Consolidated reporting**: MultiQC aggregates per-sample FastQC metrics into a single interactive HTML report
-- **Reproducible**: pinned software versions in the Docker image guarantee consistent results
-
----
-
-## Requirements
-
-Docker must be installed. No other local dependencies are required.
-
-```bash
-docker --version  # Docker 20.10+
-```
+- **Splice-aware alignment with STAR**: handles exon-spanning reads correctly, essential for eukaryotic transcriptomics
+- **featureCounts quantification**: fast, memory-efficient gene-level counting with support for stranded library protocols
+- **DSL2 module reuse**: `FASTQC` imported at two points in the pipeline (raw and trimmed) without code duplication
+- **Multi-sample parallelism**: all samples processed concurrently via Nextflow's channel model
+- **Profile support**: local, Docker, Singularity, conda, and SLURM execution without changing the pipeline code
+- **GitHub Actions CI**: automated syntax and stub-run validation on every push
 
 ---
 
 ## Quick Start
 
-### Pull and run
+### Install Nextflow
 
 ```bash
-git clone https://github.com/g-Poulami/RNA-seq-QC-Pipeline.git
-cd RNA-seq-QC-Pipeline
-
-# Build Docker image
-docker build -t rnaseq-qc .
-
-# Run on your data
-docker run --rm \
-  -v /path/to/fastq:/data/raw \
-  -v /path/to/results:/results \
-  rnaseq-qc \
-  --input /data/raw \
-  --output /results
+curl -s https://get.nextflow.io | bash
+sudo mv nextflow /usr/local/bin/
 ```
 
-### Run with Docker Compose
+### Stub run (no tools required)
 
 ```bash
-# Edit paths in docker-compose.yml, then:
-docker-compose up
+git clone https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline.git
+cd Nextflow-RNA-seq-Pipeline
+python3 test/generate_test_data.py
+nextflow run main.nf -profile test -stub-run
+```
+
+### Run with Docker
+
+```bash
+nextflow run main.nf \
+  -profile docker \
+  --reads     'data/*_R{1,2}.fastq.gz' \
+  --genome    'ref/genome.fa' \
+  --gtf       'ref/annotation.gtf' \
+  --outdir    results
+```
+
+### Resume after failure
+
+```bash
+nextflow run main.nf -resume [other params]
 ```
 
 ---
 
-## Configuration
+## Parameters
 
-Edit `config.yaml` to customise trimming parameters:
-
-```yaml
-input_dir: data/raw/
-output_dir: results/
-
-trimmomatic:
-  adapters: assets/TruSeq3-PE.fa
-  leading: 3
-  trailing: 3
-  sliding_window: "4:15"
-  min_len: 36
-  threads: 4
-
-multiqc:
-  title: "RNA-seq QC Report"
-  filename: multiqc_report.html
-```
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--reads` | required | Glob pattern for paired FASTQ files |
+| `--genome` | required | Reference genome FASTA |
+| `--gtf` | required | Gene annotation GTF file |
+| `--adapters` | `assets/adapters.fa` | Adapter sequences for Trimmomatic |
+| `--strandedness` | `0` | featureCounts strandedness: 0=unstranded, 1=forward, 2=reverse |
+| `--star_extra_args` | `""` | Additional STAR alignment flags |
+| `--outdir` | `results` | Output directory |
+| `--run_multiqc` | `true` | Aggregate QC reports |
 
 ---
 
 ## Outputs
 
-| File/Directory | Description |
-|----------------|-------------|
-| `results/fastqc_raw/` | Per-sample FastQC HTML + ZIP (raw reads) |
-| `results/trimmed/` | Quality-trimmed FASTQ files |
-| `results/fastqc_trimmed/` | Per-sample FastQC HTML + ZIP (trimmed reads) |
-| `results/multiqc/multiqc_report.html` | Aggregated interactive QC report |
-| `results/multiqc/multiqc_data/` | Raw data tables underlying the MultiQC report |
+| Directory | Contents |
+|-----------|----------|
+| `results/fastqc/` | FastQC HTML and ZIP (raw and trimmed) |
+| `results/trimmomatic/` | Trimmed FASTQs and log files |
+| `results/star/` | Aligned BAMs, splice junction tables, STAR logs |
+| `results/samtools/` | Sorted BAMs, BAI indices, flagstat |
+| `results/counts/` | `counts.txt` — gene × sample count matrix |
+| `results/multiqc/` | `multiqc_report.html` |
+| `results/pipeline_info/` | Timeline, resource report, execution DAG |
 
 ---
 
-## Interpreting the MultiQC Report
+## Downstream Analysis
 
-Key metrics to review in the consolidated report:
+The `counts.txt` output is directly compatible with R packages for differential expression analysis:
 
-| Metric | Acceptable Range | Action if Failed |
-|--------|-----------------|------------------|
-| Per-base sequence quality | Q > 28 across read | Increase trimming stringency |
-| Adapter content | < 1% post-trim | Check adapter file matches library prep |
-| % Duplicates | < 60% for total RNA | Expected higher for poly-A enriched |
-| GC content | Species-appropriate | Investigate rRNA or contamination |
-| Sequence length distribution | Consistent across samples | Flag outlier samples |
+```r
+# DESeq2
+library(DESeq2)
+counts <- read.table("results/counts/counts.txt", skip=1, row.names=1, header=TRUE)
+
+# edgeR
+library(edgeR)
+dge <- DGEList(counts = counts)
+```
 
 ---
 
-## Docker Image Contents
+## Profiles
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| FastQC | 0.12.1 | Per-read quality assessment |
-| Trimmomatic | 0.39 | Adapter and quality trimming |
-| MultiQC | 1.17 | Report aggregation |
-| Python | 3.10 | Pipeline orchestration |
+| Profile | Description |
+|---------|-------------|
+| `local` | Run locally, tools must be in PATH |
+| `docker` | Pull containers from quay.io/biocontainers |
+| `singularity` | Singularity images (recommended for HPC) |
+| `conda` | Per-process conda environments |
+| `slurm` | Submit to SLURM cluster |
+| `test` | Bundled synthetic data for CI |
 
 ---
 
 ## Project Structure
 
 ```
-RNA-seq-QC-Pipeline/
-├── Dockerfile                 # Container definition
-├── docker-compose.yml         # Compose configuration
-├── run_qc.py                  # Pipeline orchestrator
-├── config.yaml                # User parameters
+Nextflow-RNA-seq-Pipeline/
+├── main.nf
+├── nextflow.config
 ├── assets/
-│   ├── TruSeq3-PE.fa          # Illumina adapter sequences
-│   └── NexteraPE-PE.fa        # Nextera adapter sequences
-├── data/
-│   └── raw/                   # Input FASTQs (not tracked)
-└── results/                   # Pipeline outputs
+│   └── adapters.fa
+├── modules/
+│   ├── fastqc.nf
+│   ├── trimmomatic.nf
+│   ├── star.nf
+│   ├── samtools.nf
+│   ├── featurecounts.nf
+│   └── multiqc.nf
+├── test/
+│   ├── generate_test_data.py
+│   └── data/
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 ---
 
-## Notes
+## Reference Files (GRCh38)
 
-This pipeline produces QC-filtered reads ready for alignment. Typical next steps are splice-aware alignment (STAR or HISAT2) followed by quantification (featureCounts or Salmon), which are implemented in the companion [Nextflow-RNA-seq-Pipeline](https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline) repository.
+| File | Source |
+|------|--------|
+| `hg38.fa` | UCSC Genome Browser |
+| `gencode.v44.annotation.gtf` | GENCODE |
+| STAR index | Generated from `hg38.fa` + GTF via `STAR_INDEX` process |
 
 ---
 
