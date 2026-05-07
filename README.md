@@ -1,198 +1,102 @@
-# Nextflow-RNA-seq-Pipeline
+[![CI](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19677919.svg)](https://doi.org/10.5281/zenodo.19677919)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-[![Nextflow](https://img.shields.io/badge/Nextflow-%E2%89%A523.04-brightgreen?style=flat-square)](https://nextflow.io)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![CI](https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline/actions/workflows/ci.yml)
+# RNA-seq QC Pipeline
 
-A high-throughput, reproducible **RNA-seq processing pipeline** built in **Nextflow DSL2**, covering adapter trimming, splice-aware alignment, transcript quantification, and QC reporting for bulk transcriptomic analysis.
-
----
-
-## Overview
-
-RNA sequencing quantifies gene expression across conditions, time points, or treatment groups. This pipeline takes paired-end raw reads through all pre-processing steps required before differential expression analysis — producing per-gene count matrices, alignment statistics, and a unified QC report. The DSL2 architecture makes it straightforward to swap aligners or quantifiers without rewriting the full workflow.
-
----
-
-## Pipeline Steps
+A minimal but realistic bioinformatics pipeline built with **Snakemake** and
+containerised with **Docker**.
 
 ```
-Paired FASTQ reads
-        |
-        v
-  FastQC (raw)              -- read quality, adapter content, duplication
-        |
-        v
-  Trimmomatic               -- adapter removal, quality trimming
-        |
-        v
-  FastQC (trimmed)          -- confirm trimming efficacy
-        |
-        v
-  STAR index (once)
-        |
-  STAR alignment            -- splice-aware alignment to reference genome
-        |
-        v
-  SAMtools sort & index      -- coordinate-sorted BAM
-  SAMtools flagstat          -- alignment rate, pair statistics
-        |
-        v
-  featureCounts              -- gene-level read counting
-        |
-        v
-  MultiQC                   -- aggregated HTML report
+generate_reads  →  filter_reads  →  count_kmers  →  report
+      ↑                  ↑               ↑              ↑
+ (per sample)       (per sample)    (per sample)   (all samples)
 ```
 
----
+## Pipeline steps
 
-## Key Features
+| Rule | Script | Input | Output |
+| --- | --- | --- | --- |
+| `generate_reads` | `generate_reads.py` | — | `data/{sample}/reads.fastq` |
+| `filter_reads` | `filter_reads.py` | FASTQ | `results/{sample}/filtered.fastq` + stats JSON |
+| `count_kmers` | `count_kmers.py` | filtered FASTQ | `results/{sample}/kmers.tsv` |
+| `report` | `report.py` | all stats + k-mer TSVs | `results/report.txt` |
 
-- **Splice-aware alignment with STAR**: handles exon-spanning reads correctly, essential for eukaryotic transcriptomics
-- **featureCounts quantification**: fast, memory-efficient gene-level counting with support for stranded library protocols
-- **DSL2 module reuse**: `FASTQC` imported at two points in the pipeline (raw and trimmed) without code duplication
-- **Multi-sample parallelism**: all samples processed concurrently via Nextflow's channel model
-- **Profile support**: local, Docker, Singularity, conda, and SLURM execution without changing the pipeline code
-- **GitHub Actions CI**: automated syntax and stub-run validation on every push
+## Project layout
 
----
+```
+pipeline/
+├── Dockerfile
+├── Snakefile          # DAG definition
+├── config.yaml        # samples, thresholds, k-mer k
+├── scripts/
+│   ├── generate_reads.py
+│   ├── filter_reads.py
+│   ├── count_kmers.py
+│   └── report.py
+├── data/              # generated at runtime
+├── results/           # outputs land here
+└── logs/              # per-rule stderr logs
+```
 
-## Quick Start
-
-### Install Nextflow
+## Running locally
 
 ```bash
-curl -s https://get.nextflow.io | bash
-sudo mv nextflow /usr/local/bin/
+# Install Snakemake
+pip install snakemake
+
+# Dry-run (shows what would execute)
+snakemake --dry-run --cores 4
+
+# Full run
+snakemake --cores 4 --printshellcmds
 ```
 
-### Stub run (no tools required)
+## Running with Docker
 
 ```bash
-git clone https://github.com/g-Poulami/Nextflow-RNA-seq-Pipeline.git
-cd Nextflow-RNA-seq-Pipeline
-python3 test/generate_test_data.py
-nextflow run main.nf -profile test -stub-run
+# 1. Build the image
+docker build -t pipeline-demo .
+
+# 2. Run (mount results/ so outputs are accessible on the host)
+docker run --rm \
+  -v "$(pwd)/results:/pipeline/results" \
+  pipeline-demo
+
+# 3. Inspect the report
+cat results/report.txt
 ```
 
-### Run with Docker
+### Override config at runtime
 
 ```bash
-nextflow run main.nf \
-  -profile docker \
-  --reads     'data/*_R{1,2}.fastq.gz' \
-  --genome    'ref/genome.fa' \
-  --gtf       'ref/annotation.gtf' \
-  --outdir    results
+docker run --rm \
+  -v "$(pwd)/results:/pipeline/results" \
+  pipeline-demo \
+  snakemake --cores all --config n_reads=5000 kmer_k=6
 ```
 
-### Resume after failure
+### Interactive debugging
 
 ```bash
-nextflow run main.nf -resume [other params]
+docker run --rm -it --entrypoint bash pipeline-demo
 ```
 
----
+## Configuration (`config.yaml`)
 
-## Parameters
+| Key | Default | Description |
+| --- | --- | --- |
+| `samples` | `[sample_A, sample_B, sample_C]` | List of sample IDs |
+| `n_reads` | `1000` | Reads to simulate per sample |
+| `read_len` | `100` | Read length (bp) |
+| `error_rate` | `0.02` | Sequencing error probability |
+| `min_quality` | `20` | Minimum mean Phred score to keep a read |
+| `min_length` | `50` | Minimum read length to keep |
+| `kmer_k` | `4` | k-mer length |
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `--reads` | required | Glob pattern for paired FASTQ files |
-| `--genome` | required | Reference genome FASTA |
-| `--gtf` | required | Gene annotation GTF file |
-| `--adapters` | `assets/adapters.fa` | Adapter sequences for Trimmomatic |
-| `--strandedness` | `0` | featureCounts strandedness: 0=unstranded, 1=forward, 2=reverse |
-| `--star_extra_args` | `""` | Additional STAR alignment flags |
-| `--outdir` | `results` | Output directory |
-| `--run_multiqc` | `true` | Aggregate QC reports |
+## Extending the pipeline
 
----
-
-## Outputs
-
-| Directory | Contents |
-|-----------|----------|
-| `results/fastqc/` | FastQC HTML and ZIP (raw and trimmed) |
-| `results/trimmomatic/` | Trimmed FASTQs and log files |
-| `results/star/` | Aligned BAMs, splice junction tables, STAR logs |
-| `results/samtools/` | Sorted BAMs, BAI indices, flagstat |
-| `results/counts/` | `counts.txt` — gene × sample count matrix |
-| `results/multiqc/` | `multiqc_report.html` |
-| `results/pipeline_info/` | Timeline, resource report, execution DAG |
-
----
-
-## Downstream Analysis
-
-The `counts.txt` output is directly compatible with R packages for differential expression analysis:
-
-```r
-# DESeq2
-library(DESeq2)
-counts <- read.table("results/counts/counts.txt", skip=1, row.names=1, header=TRUE)
-
-# edgeR
-library(edgeR)
-dge <- DGEList(counts = counts)
-```
-
----
-
-## Profiles
-
-| Profile | Description |
-|---------|-------------|
-| `local` | Run locally, tools must be in PATH |
-| `docker` | Pull containers from quay.io/biocontainers |
-| `singularity` | Singularity images (recommended for HPC) |
-| `conda` | Per-process conda environments |
-| `slurm` | Submit to SLURM cluster |
-| `test` | Bundled synthetic data for CI |
-
----
-
-## Project Structure
-
-```
-Nextflow-RNA-seq-Pipeline/
-├── main.nf
-├── nextflow.config
-├── assets/
-│   └── adapters.fa
-├── modules/
-│   ├── fastqc.nf
-│   ├── trimmomatic.nf
-│   ├── star.nf
-│   ├── samtools.nf
-│   ├── featurecounts.nf
-│   └── multiqc.nf
-├── test/
-│   ├── generate_test_data.py
-│   └── data/
-└── .github/
-    └── workflows/
-        └── ci.yml
-```
-
----
-
-## Reference Files (GRCh38)
-
-| File | Source |
-|------|--------|
-| `hg38.fa` | UCSC Genome Browser |
-| `gencode.v44.annotation.gtf` | GENCODE |
-| STAR index | Generated from `hg38.fa` + GTF via `STAR_INDEX` process |
-
----
-
-## License
-
-MIT
-
----
-
-## Author
-
-Poulami Ghosh — [LinkedIn](https://linkedin.com/in/poulami-ghosh-879439304) | [Google Scholar](https://scholar.google.com)
+- **Real data**: skip `generate_reads` and drop real FASTQs into `data/{sample}/reads.fastq`
+- **Adapter trimming**: insert a `trim_reads` rule between `generate_reads` and `filter_reads`
+- **Alignment**: add a `bwa mem` or `STAR` rule after filtering
+- **Cloud execution**: Snakemake supports AWS, GCP, and SLURM executors with minimal changes
