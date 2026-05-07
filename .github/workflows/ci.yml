@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "snakemake>=8,<9" pyyaml
+
+      - name: Snakemake dry-run
+        run: snakemake --dry-run --cores 1
+
+      - name: Run full pipeline
+        run: snakemake --cores 2 --printshellcmds
+
+      - name: Verify outputs
+        run: |
+          echo "=== report.txt ===" && cat results/report.txt
+          for sample in sample_A sample_B sample_C; do
+            test -f results/$sample/filtered.fastq || (echo "MISSING: filtered.fastq for $sample" && exit 1)
+            test -f results/$sample/kmers.tsv       || (echo "MISSING: kmers.tsv for $sample"       && exit 1)
+            test -f results/$sample/filter_stats.json || (echo "MISSING: filter_stats.json for $sample" && exit 1)
+          done
+          echo "All expected output files present."
+
+      - name: Upload pipeline results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-results
+          path: results/
+          retention-days: 7
