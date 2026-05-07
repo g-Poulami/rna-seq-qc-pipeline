@@ -30,7 +30,7 @@ jobs:
       - name: Run full pipeline
         run: snakemake --cores 2 --printshellcmds
 
-      - name: - name: Verify outputs
+      - name: Verify outputs
         run: |
           test -f results/report.txt && echo "Pipeline completed successfully" || (echo "report.txt missing" && exit 1)
 
