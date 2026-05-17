@@ -1,7 +1,7 @@
 [![CI](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml/badge.svg)](...)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-# RNA-seq QC Pipeline
+# RNA-seq QC Pipeline [*Live QC Dashboard*](https://g-Poulami.github.io/rna-seq-qc-pipeline/pipeline_qc_dashboard.html)
 
 A minimal but realistic bioinformatics pipeline built with **Snakemake** and
 containerised with **Docker**.
