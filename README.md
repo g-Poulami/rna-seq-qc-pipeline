@@ -1,5 +1,5 @@
 [![CI](https://github.com/g-Poulami/rna-seq-qc-pipeline/actions/workflows/ci.yml/badge.svg)](...)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue?style=flat-square)](LICENSE)
 
 # RNA-seq QC Pipeline
 
